@@ -1,0 +1,10 @@
+{
+  "ai": {
+    "api_url": "https://api.openai.com/v1/chat/completions",
+    "api_key": "your-api-key-here",
+    "model": "gpt-4-turbo-preview"
+  },
+  "default_list": "reminders",
+  "default_reminder_minutes": [15, 30],
+  "use_ai": true
+}
