@@ -116,7 +116,7 @@ fn title_patterns() -> &'static Vec<String> {
         "\\d{4}[-/.]\\d{1,2}[-/.]\\d{1,2}".to_string(),
         "\\d{1,2}[-/.]\\d{1,2}".to_string(),
         "\\d{1,2}:\\d{2}".to_string(),
-        "\\d{1,2}点\\d{1,2}分|\\d{1,2}点".to_string(),
+        "\\d{1,2}点\\d{1,2}分|\\d{1,2}点\\d{1,2}|\\d{1,2}点".to_string(),
         strs_to_alt(&["早上", "早晨", "上午", "下午", "晚上", "晚间", "中午", "凌晨"]),
         strs_to_alt(&["每天", "每日", "每周", "每星期", "每月", "每个月", "每年", "每个工作日", "工作日", "每个周末", "周末"]),
         strs_to_alt(&["紧急", "马上", "立刻", "ASAP", "asap", "火烧眉毛", "十万火急"]),
@@ -485,6 +485,21 @@ mod tests {
     fn test_parse_urgent_reminder() {
         let result = parse_input("紧急今天下午5点前提交报告", "reminders").unwrap();
         assert!(result.is_urgent);
+    }
+
+    #[test]
+    fn test_parse_title_reminder() {
+        let result = parse_input("下午19点30分提交报告", "reminders").unwrap();
+        assert_eq!(result.title, "提交报告");
+        assert_eq!(result.due_date.unwrap().hour(), 19);
+        assert_eq!(result.due_date.unwrap().minute(), 30);
+        let result = parse_input("下午19点30提交报告", "reminders").unwrap();
+        assert_eq!(result.title, "提交报告");
+        assert_eq!(result.due_date.unwrap().hour(), 19);
+        assert_eq!(result.due_date.unwrap().minute(), 30);
+        let result = parse_input("下午19点提交报告", "reminders").unwrap();
+        assert_eq!(result.title, "提交报告");
+        assert_eq!(result.due_date.unwrap().hour(), 19);
     }
 
     #[test]
