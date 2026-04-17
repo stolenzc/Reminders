@@ -7,54 +7,67 @@ mod parser;
 mod reminder;
 
 use anyhow::Result;
-use clap::Parser as ClapParser;
-use cli::{Cli, Commands};
-use hybrid_parser::HybridParser;
+use cli::{parse_command, ParsedCommand};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let cli = Cli::parse();
 
-    match &cli.command {
-        Commands::Add {
-            description,
+    let config = config::ConfigManager::new().ok();
+
+    let matches = cli::get_matches();
+    let command = parse_command(matches);
+
+    match command {
+        ParsedCommand::Add {
+            ref description,
             force,
-            list,
+            ref list,
             test,
-        } => handle_add(description, *force, list.as_deref(), *test, cli.quiet).await,
-
-        Commands::Parse { description } => handle_parse(description, cli.quiet).await,
+            quiet,
+        } => {
+            handle_add(&description, force, list.as_deref(), test, quiet, &config).await
+        }
+        ParsedCommand::Parse {
+            ref description,
+            quiet,
+        } => handle_parse(&description, quiet, &config).await,
     }
 }
 
-/// 处理添加命令
 async fn handle_add(
     description: &[String],
     force: bool,
     list: Option<&str>,
     test: bool,
     quiet: bool,
+    config: &Option<config::ConfigManager>,
 ) -> Result<()> {
     if description.is_empty() {
-        cli::show_error("请提供提醒事项的描述，例如：reminders add 明天下午3点开会");
+        cli::show_error("请提供提醒事项的描述");
         return Ok(());
     }
 
     let input = cli::parse_description_args(description);
-    cli::show_info(&format!("正在解析: '{}'", input), quiet);
+    cli::show_info(&format!("ℹ️ 正在解析: '{}'", input), quiet);
 
-    let parser = match HybridParser::new(quiet) {
-        Ok(p) => p,
-        Err(e) => {
-            cli::show_error(&format!("初始化解析器失败: {}", e));
+    let parser = match config {
+        Some(cm) => match hybrid_parser::HybridParser::from_config(cm.clone(), quiet) {
+            Ok(p) => p,
+            Err(e) => {
+                cli::show_error(&format!("❌ 初始化解析器失败: {}", e));
+                return Ok(());
+            }
+        },
+        None => {
+            cli::show_error("❌ 初始化解析器失败: config");
             return Ok(());
         }
     };
 
     let parsed = match parser.parse(&input).await {
-        Ok(parsed) => parsed,
+        Ok(p) => p,
         Err(e) => {
-            cli::show_error(&format!("解析失败: {}", e));
+            cli::show_error(&format!("❌ 解析失败: {}", e));
             return Ok(());
         }
     };
@@ -87,7 +100,7 @@ async fn handle_add(
         return Ok(());
     }
 
-    cli::show_progress("正在创建提醒事项...");
+    cli::show_progress("⏳ 正在创建提醒事项...");
     let reminder = parsed.into_reminder();
 
     match apple_reminders::AppleReminders::create_reminder(&reminder) {
@@ -95,27 +108,36 @@ async fn handle_add(
             cli::show_add_success(&reminder.title, &reminder.list);
         }
         Err(e) => {
-            cli::show_error(&format!("创建失败: {}", e));
+            cli::show_error(&format!("❌ 创建失败: {}", e));
         }
     }
 
     Ok(())
 }
 
-/// 处理解析命令（调试用）
-async fn handle_parse(description: &[String], quiet: bool) -> Result<()> {
+async fn handle_parse(
+    description: &[String],
+    quiet: bool,
+    config: &Option<config::ConfigManager>,
+) -> Result<()> {
     if description.is_empty() {
         cli::show_error("请提供提醒事项的描述");
         return Ok(());
     }
 
     let input = cli::parse_description_args(description);
-    cli::show_info(&format!("正在解析: '{}'", input), quiet);
+    cli::show_info(&format!("ℹ️ 正在解析: '{}'", input), quiet);
 
-    let parser = match HybridParser::new(quiet) {
-        Ok(p) => p,
-        Err(e) => {
-            cli::show_error(&format!("初始化解析器失败: {}", e));
+    let parser = match config {
+        Some(cm) => match hybrid_parser::HybridParser::from_config(cm.clone(), quiet) {
+            Ok(p) => p,
+            Err(e) => {
+                cli::show_error(&format!("❌ 初始化解析器失败: {}", e));
+                return Ok(());
+            }
+        },
+        None => {
+            cli::show_error("❌ 初始化解析器失败: config");
             return Ok(());
         }
     };
@@ -126,7 +148,7 @@ async fn handle_parse(description: &[String], quiet: bool) -> Result<()> {
             println!("{:#?}", parsed);
         }
         Err(e) => {
-            cli::show_error(&format!("解析失败: {}", e));
+            cli::show_error(&format!("❌ 解析失败: {}", e));
         }
     }
 

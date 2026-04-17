@@ -5,7 +5,6 @@ use chrono::{DateTime, Local};
 #[derive(Debug, Clone)]
 pub struct ParsedReminder {
     pub title: String,
-    pub description: Option<String>,
     pub due_date: Option<DateTime<Local>>,
     pub start_date: Option<DateTime<Local>>,
     pub priority: Priority,
@@ -21,9 +20,6 @@ impl ParsedReminder {
     pub fn into_reminder(self) -> Reminder {
         let mut reminder = Reminder::new(self.title, self.list);
 
-        if let Some(desc) = self.description {
-            reminder = reminder.with_description(desc);
-        }
         if let Some(due_date) = self.due_date {
             reminder = reminder.with_due_date(due_date);
         }

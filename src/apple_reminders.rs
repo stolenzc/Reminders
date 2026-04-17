@@ -90,16 +90,6 @@ fn build_reminder_script(reminder: &Reminder) -> Result<String> {
         priority = apple_priority,
     );
 
-    // 备注
-    if let Some(desc) = &reminder.description {
-        if !desc.is_empty() {
-            script.push_str(&format!(
-                "    set body of newReminder to \"{}\"\n",
-                escape_string(desc)
-            ));
-        }
-    }
-
     // 截止日期（使用逐属性赋值，避免区域设置问题）
     if let Some(due_date) = &reminder.due_date {
         script.push_str(&build_set_date_script("due date", due_date, "newReminder"));

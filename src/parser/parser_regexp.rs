@@ -3,83 +3,166 @@ use super::cors::ParsedReminder;
 use anyhow::Result;
 use chrono::{DateTime, Datelike, Duration, Local, NaiveDate, NaiveTime, TimeZone, Timelike};
 use regex::Regex;
-use std::sync::LazyLock;
+use std::sync::OnceLock;
 
-/// 时间关键词正则（注意：| 两侧不加空格）
-static TIME_PATTERNS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(|| {
-    vec![
-        (Regex::new(r"(明天|明日)").unwrap(), "tomorrow"),
-        (Regex::new(r"(后天|後天)").unwrap(), "day_after_tomorrow"),
-        (Regex::new(r"(今天|今日)").unwrap(), "today"),
-        (Regex::new(r"下周([一二三四五六日天])").unwrap(), "next_week"),
-        (Regex::new(r"(?:下周)?周([一二三四五六日天])").unwrap(), "this_week"),
-        (Regex::new(r"(\d+)天后").unwrap(), "days_from_now"),
-        (Regex::new(r"(\d+)小时后").unwrap(), "hours_from_now"),
-        (Regex::new(r"(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})").unwrap(), "date_ymd"),
-        (Regex::new(r"(\d{1,2})[-/.](\d{1,2})").unwrap(), "date_md"),
-        (Regex::new(r"(\d{1,2}):(\d{2})").unwrap(), "time_hm"),
-        (Regex::new(r"(\d{1,2})点").unwrap(), "time_h"),
-        (Regex::new(r"(\d{1,2})点(\d{1,2})").unwrap(), "time_h_cn_m"),
-        (Regex::new(r"(\d{1,2})点(\d{1,2})分").unwrap(), "time_hm_cn"),
-        (Regex::new(r"(早上|早晨)").unwrap(), "morning"),
-        (Regex::new(r"上午").unwrap(), "forenoon"),
-        (Regex::new(r"下午").unwrap(), "afternoon"),
-        (Regex::new(r"(晚上|晚间)").unwrap(), "evening"),
-        (Regex::new(r"中午").unwrap(), "noon"),
-        (Regex::new(r"凌晨").unwrap(), "early_morning"),
-    ]
-});
+// ── Hardcoded Chinese parsing keywords (was loaded from locales/parsing/zh.json) ──
 
-/// 重复模式正则
-static RECURRENCE_PATTERNS: LazyLock<Vec<(Regex, Recurrence)>> = LazyLock::new(|| {
-    vec![
-        (Regex::new(r"(每天|每日)").unwrap(), Recurrence::Daily),
-        (Regex::new(r"(每周|每星期)").unwrap(), Recurrence::Weekly),
-        (Regex::new(r"(每月|每个月)").unwrap(), Recurrence::Monthly),
-        (Regex::new(r"每年").unwrap(), Recurrence::Yearly),
-        (Regex::new(r"(每个工作日|工作日)").unwrap(), Recurrence::Weekdays),
-        (Regex::new(r"(每个周末|周末)").unwrap(), Recurrence::Weekends),
-    ]
-});
+fn regex_from_strs(strings: &[&str]) -> Regex {
+    Regex::new(&strings.iter().map(|s| regex::escape(s)).collect::<Vec<_>>().join("|")).unwrap()
+}
 
-/// 优先级关键词
-static PRIORITY_KEYWORDS: &[&str] = &["重要", "优先", "高优先级", "critical", "high priority"];
-static LOW_PRIORITY_KEYWORDS: &[&str] = &["不重要", "低优先级", "有空再做", "low priority"];
+fn strs_to_alt(strings: &[&str]) -> String {
+    if strings.len() == 1 {
+        regex::escape(strings[0])
+    } else {
+        let escaped: Vec<String> = strings.iter().map(|s| regex::escape(s)).collect();
+        format!("({})", escaped.join("|"))
+    }
+}
 
-/// 紧急关键词
-static URGENT_KEYWORDS: &[&str] = &[
-    "紧急", "急", "马上", "立刻", "ASAP", "asap",
-    "火烧眉毛", "十万火急", "urgent",
-];
+fn build_suffix_pattern(suffixes: &[&str], capture: &str) -> Regex {
+    let alt = strs_to_alt(suffixes);
+    Regex::new(&format!(r"{}{}", capture, alt)).unwrap()
+}
 
-/// 列表关键词
-static LIST_PATTERNS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(|| {
-    vec![
-        (Regex::new(r"(?:加到|放到|存到|添加到)\s*([\S]+?)(?:列表|清单)?$").unwrap(), "dynamic"),
-        (Regex::new(r"列表[:：]\s*(\S+)").unwrap(), "dynamic"),
-    ]
-});
+fn build_hour_pattern(hour_marker: &str) -> Regex {
+    let escaped_marker = regex::escape(hour_marker);
+    Regex::new(&format!(r"(\d+){}", escaped_marker)).unwrap()
+}
 
-/// 标签正则
-static TAG_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"#(\w+)").unwrap());
+fn build_next_week_pattern(prefixes: &[&str], weekdays: &[(&str, &[&str])]) -> Regex {
+    let prefix_alt = strs_to_alt(prefixes);
+    let all_days: Vec<String> = weekdays.iter().flat_map(|(_, days)| days.iter().map(|d| d.to_string())).collect();
+    Regex::new(&format!(r"(?:{})([{}])", prefix_alt, all_days.join("|"))).unwrap()
+}
 
-/// 提醒时间关键词
-static REMINDER_PATTERNS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(|| {
-    vec![
+fn build_this_week_pattern(prefixes: &[&str], weekdays: &[(&str, &[&str])]) -> Regex {
+    let prefix_alt = strs_to_alt(prefixes);
+    let all_days: Vec<String> = weekdays.iter().flat_map(|(_, days)| days.iter().map(|d| d.to_string())).collect();
+    Regex::new(&format!(r"(?:{}[{}])", prefix_alt, all_days.join("|"))).unwrap()
+}
+
+fn time_patterns() -> &'static Vec<(Regex, &'static str)> {
+    static PATTERNS: OnceLock<Vec<(Regex, &'static str)>> = OnceLock::new();
+    PATTERNS.get_or_init(|| {
+        let weekdays: &[(&str, &[&str])] = &[
+            ("mon", &["一"]), ("tue", &["二"]), ("wed", &["三"]),
+            ("thu", &["四"]), ("fri", &["五"]), ("sat", &["六"]),
+            ("sun", &["日", "天"]),
+        ];
+        vec![
+            (regex_from_strs(&["明天", "明日"]), "tomorrow"),
+            (regex_from_strs(&["后天", "後天"]), "day_after_tomorrow"),
+            (regex_from_strs(&["今天", "今日"]), "today"),
+            (build_next_week_pattern(&["下周"], weekdays), "next_week"),
+            (build_this_week_pattern(&["周"], weekdays), "this_week"),
+            (build_suffix_pattern(&["天后"], r"(\d+)"), "days_from_now"),
+            (build_suffix_pattern(&["小时后"], r"(\d+)"), "hours_from_now"),
+            (Regex::new(r"(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})").unwrap(), "date_ymd"),
+            (Regex::new(r"(\d{1,2})[-/.](\d{1,2})").unwrap(), "date_md"),
+            (Regex::new(r"(\d{1,2}):(\d{2})").unwrap(), "time_hm"),
+            (build_hour_pattern("点"), "time_h"),
+            (Regex::new(r"(\d{1,2})点(\d{1,2})").unwrap(), "time_h_cn_m"),
+            (Regex::new(r"(\d{1,2})点(\d{1,2})分").unwrap(), "time_hm_cn"),
+            (regex_from_strs(&["早上", "早晨"]), "morning"),
+            (regex_from_strs(&["上午"]), "forenoon"),
+            (regex_from_strs(&["下午"]), "afternoon"),
+            (regex_from_strs(&["晚上", "晚间"]), "evening"),
+            (regex_from_strs(&["中午"]), "noon"),
+            (regex_from_strs(&["凌晨"]), "early_morning"),
+        ]
+    })
+}
+
+fn recurrence_patterns() -> &'static Vec<(Regex, Recurrence)> {
+    static PATTERNS: OnceLock<Vec<(Regex, Recurrence)>> = OnceLock::new();
+    PATTERNS.get_or_init(|| vec![
+        (regex_from_strs(&["每天", "每日"]), Recurrence::Daily),
+        (regex_from_strs(&["每周", "每星期"]), Recurrence::Weekly),
+        (regex_from_strs(&["每月", "每个月"]), Recurrence::Monthly),
+        (regex_from_strs(&["每年"]), Recurrence::Yearly),
+        (regex_from_strs(&["每个工作日", "工作日"]), Recurrence::Weekdays),
+        (regex_from_strs(&["每个周末", "周末"]), Recurrence::Weekends),
+    ])
+}
+
+fn list_patterns() -> &'static Vec<(Regex, &'static str)> {
+    static PATTERNS: OnceLock<Vec<(Regex, &'static str)>> = OnceLock::new();
+    PATTERNS.get_or_init(|| {
+        let verbs = strs_to_alt(&["加到", "放到", "存到", "添加到"]);
+        let suffixes = strs_to_alt(&["列表", "清单"]);
+        vec![
+            (Regex::new(&format!(r"(?:{})\s*([\S]+?)(?:{})?$", verbs, suffixes)).unwrap(), "dynamic"),
+            (Regex::new(r"列表[:：]\s*(\S+)").unwrap(), "dynamic"),
+        ]
+    })
+}
+
+fn reminder_time_patterns() -> &'static Vec<(Regex, &'static str)> {
+    static PATTERNS: OnceLock<Vec<(Regex, &'static str)>> = OnceLock::new();
+    PATTERNS.get_or_init(|| vec![
         (Regex::new(r"提前(\d+)分钟").unwrap(), "minutes"),
         (Regex::new(r"提前(\d+)小时").unwrap(), "hours"),
         (Regex::new(r"提前(\d+)天").unwrap(), "days"),
-    ]
-});
+    ])
+}
 
-/// 解析自然语言输入
+fn title_patterns() -> &'static Vec<String> {
+    static PATTERNS: OnceLock<Vec<String>> = OnceLock::new();
+    PATTERNS.get_or_init(|| vec![
+        strs_to_alt(&["明天", "明日", "后天", "今天", "今日"]),
+        "下周[一二三四五六日天]|(?:下周)?周[一二三四五六日天]".to_string(),
+        "\\d+天后|\\d+小时后".to_string(),
+        "\\d{4}[-/.]\\d{1,2}[-/.]\\d{1,2}".to_string(),
+        "\\d{1,2}[-/.]\\d{1,2}".to_string(),
+        "\\d{1,2}:\\d{2}".to_string(),
+        "\\d{1,2}点\\d{1,2}分|\\d{1,2}点".to_string(),
+        strs_to_alt(&["早上", "早晨", "上午", "下午", "晚上", "晚间", "中午", "凌晨"]),
+        strs_to_alt(&["每天", "每日", "每周", "每星期", "每月", "每个月", "每年", "每个工作日", "工作日", "每个周末", "周末"]),
+        strs_to_alt(&["紧急", "马上", "立刻", "ASAP", "asap", "火烧眉毛", "十万火急"]),
+        strs_to_alt(&["重要", "优先", "高优先级", "不重要", "低优先级", "有空再做"]),
+        "(?:加到|放到|存到|添加到)\\s*[\\S]+?(?:列表|清单)?".to_string(),
+        "列表[:：]\\s*\\S+".to_string(),
+        "提前\\d+(?:分钟|小时|天)".to_string(),
+        strs_to_alt(&["，", "。", "！", "？", ",", ".", "!", "?"]),
+    ])
+}
+
+fn high_priority_keywords() -> &'static [&'static str] {
+    &["重要", "优先", "高优先级", "critical", "high priority"]
+}
+
+fn low_priority_keywords() -> &'static [&'static str] {
+    &["不重要", "低优先级", "有空再做", "low priority"]
+}
+
+fn urgent_keywords() -> &'static [&'static str] {
+    &["紧急", "急", "马上", "立刻", "ASAP", "asap", "火烧眉毛", "十万火急", "urgent"]
+}
+
+fn parse_weekday_char(ch: &str) -> Option<chrono::Weekday> {
+    let weekdays: &[(&str, chrono::Weekday)] = &[
+        ("一", chrono::Weekday::Mon), ("二", chrono::Weekday::Tue),
+        ("三", chrono::Weekday::Wed), ("四", chrono::Weekday::Thu),
+        ("五", chrono::Weekday::Fri), ("六", chrono::Weekday::Sat),
+        ("日", chrono::Weekday::Sun), ("天", chrono::Weekday::Sun),
+    ];
+    for (c, wd) in weekdays {
+        if c.contains(ch) {
+            return Some(*wd);
+        }
+    }
+    None
+}
+
+const DEFAULT_FALLBACK_TITLE: &str = "新提醒";
+
 pub fn parse_input(input: &str, default_list: &str) -> Result<ParsedReminder> {
     let input = input.trim();
     let now = Local::now();
 
     let mut result = ParsedReminder {
         title: String::new(),
-        description: None,
         due_date: None,
         start_date: None,
         priority: Priority::Medium,
@@ -92,16 +175,17 @@ pub fn parse_input(input: &str, default_list: &str) -> Result<ParsedReminder> {
     };
 
     // 提取标签 #tag
-    for cap in TAG_PATTERN.captures_iter(input) {
+    let tag_pattern = Regex::new(r"#(\w+)").unwrap();
+    for cap in tag_pattern.captures_iter(input) {
         if let Some(tag) = cap.get(1) {
             result.tags.push(tag.as_str().to_string());
         }
     }
 
-    let text = TAG_PATTERN.replace_all(input, "").to_string();
+    let text = tag_pattern.replace_all(input, "").to_string();
 
     // 解析目标列表
-    for (pattern, kind) in LIST_PATTERNS.iter() {
+    for (pattern, kind) in list_patterns().iter() {
         if let Some(caps) = pattern.captures(&text) {
             if *kind == "dynamic" {
                 if let Some(m) = caps.get(1) {
@@ -113,7 +197,7 @@ pub fn parse_input(input: &str, default_list: &str) -> Result<ParsedReminder> {
     }
 
     // 解析重复模式
-    for (pattern, recurrence) in RECURRENCE_PATTERNS.iter() {
+    for (pattern, recurrence) in recurrence_patterns().iter() {
         if pattern.is_match(&text) {
             result.recurrence = recurrence.clone();
             break;
@@ -122,22 +206,22 @@ pub fn parse_input(input: &str, default_list: &str) -> Result<ParsedReminder> {
 
     // 解析优先级
     let text_lower = text.to_lowercase();
-    for keyword in PRIORITY_KEYWORDS {
-        if text.contains(keyword) || text_lower.contains(*keyword) {
+    for keyword in high_priority_keywords() {
+        if text.contains(*keyword) || text_lower.contains(&keyword.to_lowercase()) {
             result.priority = Priority::High;
             break;
         }
     }
-    for keyword in LOW_PRIORITY_KEYWORDS {
-        if text.contains(keyword) || text_lower.contains(*keyword) {
+    for keyword in low_priority_keywords() {
+        if text.contains(*keyword) || text_lower.contains(&keyword.to_lowercase()) {
             result.priority = Priority::Low;
             break;
         }
     }
 
     // 解析紧急程度
-    for keyword in URGENT_KEYWORDS {
-        if text.contains(keyword) || text_lower.contains(*keyword) {
+    for keyword in urgent_keywords() {
+        if text.contains(*keyword) || text_lower.contains(&keyword.to_lowercase()) {
             result.is_urgent = true;
             if result.priority != Priority::High {
                 result.priority = Priority::High;
@@ -147,7 +231,7 @@ pub fn parse_input(input: &str, default_list: &str) -> Result<ParsedReminder> {
     }
 
     // 解析提醒时间
-    for (pattern, kind) in REMINDER_PATTERNS.iter() {
+    for (pattern, kind) in reminder_time_patterns().iter() {
         if let Some(caps) = pattern.captures(&text) {
             if let Some(m) = caps.get(1) {
                 let value: i32 = m.as_str().parse().unwrap_or(15);
@@ -178,9 +262,8 @@ fn parse_datetime(text: &str, now: DateTime<Local>) -> Result<Option<DateTime<Lo
     let mut time: Option<NaiveTime> = None;
     let mut time_period: Option<&str> = None;
 
-    for (pattern, pattern_type) in TIME_PATTERNS.iter() {
+    for (pattern, pattern_type) in time_patterns().iter() {
         if let Some(caps) = pattern.captures(text) {
-            println!("{:?}", pattern_type);
             match *pattern_type {
                 "tomorrow" => {
                     day_offset = Some(1);
@@ -193,7 +276,7 @@ fn parse_datetime(text: &str, now: DateTime<Local>) -> Result<Option<DateTime<Lo
                 }
                 "this_week" => {
                     if let Some(day) = caps.get(1) {
-                        let weekday = parse_chinese_weekday(day.as_str());
+                        let weekday = parse_weekday(day.as_str());
                         let current_weekday = now.weekday().num_days_from_monday() as i32;
                         let target_weekday = weekday.num_days_from_monday() as i32;
                         let mut offset = target_weekday - current_weekday;
@@ -205,7 +288,7 @@ fn parse_datetime(text: &str, now: DateTime<Local>) -> Result<Option<DateTime<Lo
                 }
                 "next_week" => {
                     if let Some(day) = caps.get(1) {
-                        let weekday = parse_chinese_weekday(day.as_str());
+                        let weekday = parse_weekday(day.as_str());
                         let current_weekday = now.weekday().num_days_from_monday() as i32;
                         let target_weekday = weekday.num_days_from_monday() as i32;
                         let mut offset = target_weekday - current_weekday;
@@ -350,7 +433,11 @@ fn parse_datetime(text: &str, now: DateTime<Local>) -> Result<Option<DateTime<Lo
 }
 
 /// 解析中文星期
-fn parse_chinese_weekday(day: &str) -> chrono::Weekday {
+fn parse_weekday(day: &str) -> chrono::Weekday {
+    if let Some(weekday) = parse_weekday_char(day) {
+        return weekday;
+    }
+    // Fallback for single-char locales like zh
     match day {
         "一" => chrono::Weekday::Mon,
         "二" => chrono::Weekday::Tue,
@@ -367,26 +454,7 @@ fn parse_chinese_weekday(day: &str) -> chrono::Weekday {
 fn extract_title(text: &str) -> String {
     let mut title = text.to_string();
 
-    let patterns_to_remove = [
-        r"明天|明日|后天|今天|今日",
-        r"下周[一二三四五六日天]|(?:下周)?周[一二三四五六日天]",
-        r"\d+天后|\d+小时后",
-        r"\d{4}[-/.]\d{1,2}[-/.]\d{1,2}",
-        r"\d{1,2}[-/.]\d{1,2}",
-        r"\d{1,2}:\d{2}",
-        r"\d{1,2}点\d{1,2}分|\d{1,2}点",
-        r"早上|早晨|上午|下午|晚上|晚间|中午|凌晨",
-        r"每天|每日|每周|每星期|每月|每个月|每年",
-        r"每个工作日|工作日|每个周末|周末",
-        r"紧急|马上|立刻|ASAP|asap|火烧眉毛|十万火急",
-        r"重要|优先|高优先级|不重要|低优先级|有空再做",
-        r"(?:加到|放到|存到|添加到)\s*[\S]+?(?:列表|清单)?",
-        r"列表[:：]\s*\S+",
-        r"提前\d+(?:分钟|小时|天)",
-        r"[，。！？,.!?]",
-    ];
-
-    for pattern in patterns_to_remove.iter() {
+    for pattern in title_patterns().iter() {
         if let Ok(re) = Regex::new(pattern) {
             title = re.replace_all(&title, "").to_string();
         }
@@ -395,7 +463,7 @@ fn extract_title(text: &str) -> String {
     let title = title.trim().to_string();
 
     if title.is_empty() {
-        "新提醒".to_string()
+        DEFAULT_FALLBACK_TITLE.to_string()
     } else {
         title
     }

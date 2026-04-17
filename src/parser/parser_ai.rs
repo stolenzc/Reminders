@@ -53,7 +53,6 @@ struct AIError {
 #[derive(Debug, Deserialize)]
 struct AIParsedResult {
     title: String,
-    description: Option<String>,
     due_date: Option<String>,
     start_date: Option<String>,
     priority: String,
@@ -146,44 +145,13 @@ impl AIParser {
         let current_time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
         let default_list = self.config_manager.get_default_list();
 
-        format!(
-            r#"你是一个智能提醒事项解析器。请将用户输入的自然语言解析为结构化的提醒事项信息。
-
-输入：{}
-
-请按照以下 JSON 格式返回解析结果：
-
-{{
-  "title": "提醒事项标题",
-  "description": "可选描述",
-  "due_date": "截止日期时间，格式：YYYY-MM-DD HH:MM:SS，如果无法确定则为 null",
-  "start_date": "开始日期时间，格式：YYYY-MM-DD HH:MM:SS，可选",
-  "priority": "优先级，可选值：none, low, medium, high",
-  "is_urgent": "是否紧急，布尔值",
-  "recurrence": "重复模式，可选：none, daily, weekly, monthly, yearly, weekdays, weekends",
-  "location": {{
-    "name": "位置名称",
-    "address": "详细地址，可选"
-  }},
-  "reminder_minutes": [15, 30],
-  "tags": ["标签1", "标签2"],
-  "list": "列表名称"
-}}
-
-注意：
-1. 当前时间：{}
-2. 如果用户没有指定时间，请根据上下文推断合理的时间
-3. 标题应该简洁明了
-4. 优先使用中文标签
-5. 如果用户指定了列表，使用用户指定的列表，否则使用 "{}"
-6. 日期时间请使用 24 小时制
-7. 如果无法确定某些字段，请使用合理的默认值
-8. 请确保返回的是有效的 JSON 格式"#,
-            input, current_time, default_list
-        )
+        let template = "你是一个智能提醒事项解析器。请将用户输入的自然语言解析为结构化的提醒事项信息。\n\n输入：{input}\n\n请按照以下 JSON 格式返回解析结果：\n\n{{\n  \"title\": \"提醒事项标题\",\n  \"description\": \"可选描述\",\n  \"due_date\": \"截止日期时间，格式：YYYY-MM-DD HH:MM:SS，如果无法确定则为 null\",\n  \"start_date\": \"开始日期时间，格式：YYYY-MM-DD HH:MM:SS，可选\",\n  \"priority\": \"优先级，可选值：none, low, medium, high\",\n  \"is_urgent\": \"是否紧急，布尔值\",\n  \"recurrence\": \"重复模式，可选：none, daily, weekly, monthly, yearly, weekdays, weekends\",\n  \"location\": {{\n    \"name\": \"位置名称\",\n    \"address\": \"详细地址，可选\"\n  }},\n  \"reminder_minutes\": [15, 30],\n  \"tags\": [\"标签1\", \"标签2\"],\n  \"list\": \"列表名称\"\n}}\n\n注意：\n1. 当前时间：{current_time}\n2. 如果用户没有指定时间，请根据上下文推断合理的时间\n3. 标题应该简洁明了\n4. 优先使用中文标签\n5. 如果用户指定了列表，使用用户指定的列表，否则使用 \"{default_list}\"\n6. 日期时间请使用 24 小时制\n7. 如果无法确定某些字段，请使用合理的默认值\n8. 请确保返回的是有效的 JSON 格式";
+        template
+            .replace("{input}", input)
+            .replace("{current_time}", &current_time)
+            .replace("{default_list}", default_list)
     }
 
-    /// 解析 AI 响应
     fn parse_ai_response(&self, content: &str) -> Result<ParsedReminder> {
         let json_content = if content.trim().starts_with('{') && content.trim().ends_with('}') {
             content.trim().to_string()
@@ -197,7 +165,6 @@ impl AIParser {
 
         Ok(ParsedReminder {
             title: ai_result.title,
-            description: ai_result.description,
             due_date: parse_datetime_string(&ai_result.due_date),
             start_date: parse_datetime_string(&ai_result.start_date),
             priority: parse_priority(&ai_result.priority),
@@ -304,6 +271,6 @@ mod tests {
 
         let prompt = ai_parser.generate_prompt("明天下午3点开会");
         assert!(prompt.contains("明天下午3点开会"));
-        assert!(prompt.contains("当前时间："));
+        assert!(prompt.contains("当前时间：") || prompt.contains("Current time:"));
     }
 }

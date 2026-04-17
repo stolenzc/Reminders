@@ -11,10 +11,8 @@ pub struct HybridParser {
 }
 
 impl HybridParser {
-    /// 创建新的混合解析器
-    pub fn new(quiet: bool) -> Result<Self> {
-        let config_manager = ConfigManager::new()?;
 
+    pub fn from_config(config_manager: ConfigManager, quiet: bool) -> Result<Self> {
         let ai_parser = if config_manager.is_ai_configured() {
             Some(AIParser::new(config_manager.clone())?)
         } else {
@@ -45,7 +43,7 @@ impl HybridParser {
                 }
                 Err(e) => {
                     if !self.quiet {
-                        println!("⚠️  AI 解析失败：{}，回退到正则解析", e);
+                        println!("⚠️ AI 解析失败：{}，回退到正则解析", e);
                     }
                 }
             }

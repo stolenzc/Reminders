@@ -1,45 +1,45 @@
-# Reminders CLI
+# Reminders
 
-A cli tool which can parse input and create reminders in Apple Reminders.app.
+一个能够通过自然语言创建 Apple 提醒事项的命令行工具。
 
-## Installation
+## 安装
 
-### Requirements
+### 环境要求
 
-- macOS (connect to Apple Reminders, Only working on Macos)
+- macOS（需连接 Apple 提醒事项，仅支持 macOS）
 
-## Quick Start
+## 快速开始
 
 ```bash
 reminders add "明天下午3点开会"
 ```
 
-## TODO
+## 待办
 
-List command:
+列表命令：
 
-- [ ] List all Reminders
-- [ ] List specify list Reminders
-- [ ] List today Reminders
+- [ ] 列出所有提醒事项
+- [ ] 列出指定列表的提醒事项
+- [ ] 列出今日的提醒事项
 
-Add command:
+添加命令：
 
-- [ ] Specify a list to add reminder
+- [ ] 指定列表添加提醒事项
 
-Complete command:
+完成命令：
 
-- [ ] Complete specify reminder
+- [ ] 完成指定提醒事项
 
-Delete command:
+删除命令：
 
-- [ ] Delete specify reminder
-- [ ] Delete all reminders
+- [ ] 删除指定提醒事项
+- [ ] 删除所有提醒事项
 
-## Config
+## 配置
 
-Config file location at `~/.config/reminders/config.json`
+配置文件位于 `~/.config/reminders/config.json`
 
-example config file
+示例配置文件：
 
 ```json
 {
@@ -48,16 +48,16 @@ example config file
     "api_key": "your-api-key-here",
     "model": "gpt-4-turbo-preview"
   },
-  "default_list": "reminders",
-  "default_reminder_minutes": [15, 30],
+  "default_list": "提醒事项",
+  "default_reminder_minutes": [15, 30]
 }
 ```
 
-## Inspired by
+## 灵感来源
 
-- [TickTick](https://ticktick.com/)
+- [TickTick](https://ticktick.com/) / [滴答清单](https://dida365.com/home)
 
-## Thanks
+## 致谢
 
-- [Apple Reminders](https://www.icloud.com/reminders) is a very aw
-- [Rust Team And Community](https://rust-lang.org/) for providing a great language and rich tools.
+- [Apple Reminders](https://www.icloud.com/reminders) 是一款非常实用的提醒工具
+- [Rust Team And Community](https://rust-lang.org/) 提供了优秀的语言和丰富的工具生态

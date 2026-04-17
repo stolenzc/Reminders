@@ -8,8 +8,6 @@ use std::fmt;
 pub struct Reminder {
     /// 事项标题
     pub title: String,
-    /// 事项描述（可选）
-    pub description: Option<String>,
     /// 截止日期时间
     pub due_date: Option<DateTime<Local>>,
     /// 开始日期时间（可选）
@@ -37,7 +35,6 @@ impl Reminder {
     pub fn new(title: String, list: String) -> Self {
         Self {
             title,
-            description: None,
             due_date: None,
             start_date: None,
             completed: false,
@@ -75,67 +72,65 @@ impl Reminder {
         self
     }
 
-    /// 设置描述
-    pub fn with_description(mut self, description: String) -> Self {
-        self.description = Some(description);
-        self
-    }
-
-    /// 添加标签
     pub fn add_tag(&mut self, tags: Vec<String>) {
         for tag in tags {
             self.tags.push(tag);
-        }
-    }
-
-    /// 添加提醒时间
-    pub fn add_reminder(&mut self, minutes_before: i32) {
-        self.reminder_minutes.push(minutes_before);
-        self.reminder_minutes.sort_unstable();
-        self.reminder_minutes.dedup();
-    }
-
-    /// 检查是否过期
-    pub fn is_overdue(&self) -> bool {
-        if let Some(due_date) = self.due_date {
-            due_date < Local::now()
-        } else {
-            false
         }
     }
 }
 
 impl fmt::Display for Reminder {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "提醒事项: {}", self.title)?;
-
-        if let Some(desc) = &self.description {
-            write!(f, "\n描述: {}", desc)?;
-        }
+        write!(f, "{}: {}", "提醒事项", self.title)?;
 
         if let Some(due_date) = &self.due_date {
-            write!(f, "\n截止时间: {}", due_date.format("%Y-%m-%d %H:%M"))?;
+            write!(
+                f,
+                "\n{}: {}",
+                "截止时间",
+                due_date.format("%Y-%m-%d %H:%M")
+            )?;
         }
 
         if let Some(start_date) = &self.start_date {
-            write!(f, "\n开始时间: {}", start_date.format("%Y-%m-%d %H:%M"))?;
+            write!(
+                f,
+                "\n{}: {}",
+                "开始时间",
+                start_date.format("%Y-%m-%d %H:%M")
+            )?;
         }
 
-        write!(f, "\n优先级: {:?}", self.priority)?;
-        write!(f, "\n紧急: {}", self.is_urgent)?;
-        write!(f, "\n重复: {:?}", self.recurrence)?;
-        write!(f, "\n列表: {}", self.list)?;
+        write!(
+            f,
+            "\n{}: {}",
+            "优先级",
+            self.priority
+        )?;
+        write!(f, "\n{}: {}", "紧急", self.is_urgent)?;
+        write!(
+            f,
+            "\n{}: {}",
+            "重复",
+            self.recurrence
+        )?;
+        write!(f, "\n{}: {}", "列表", self.list)?;
 
         if !self.tags.is_empty() {
-            write!(f, "\n标签: {}", self.tags.join(", "))?;
+            write!(f, "\n{}: {}", "标签", self.tags.join(", "))?;
         }
 
         if !self.reminder_minutes.is_empty() {
-            write!(f, "\n提醒时间（提前分钟）: {:?}", self.reminder_minutes)?;
+            write!(
+                f,
+                "\n{}: {:?}",
+                "提醒时间（提前分钟）",
+                self.reminder_minutes
+            )?;
         }
 
         if let Some(location) = &self.location {
-            write!(f, "\n位置: {}", location.name)?;
+            write!(f, "\n{}: {}", "位置", location.name)?;
             if let Some(addr) = &location.address {
                 write!(f, " ({})", addr)?;
             }
@@ -147,27 +142,31 @@ impl fmt::Display for Reminder {
 
 impl fmt::Display for Recurrence {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Recurrence::None => write!(f, "不重复"),
-            Recurrence::Daily => write!(f, "每天"),
-            Recurrence::Weekly => write!(f, "每周"),
-            Recurrence::Monthly => write!(f, "每月"),
-            Recurrence::Yearly => write!(f, "每年"),
-            Recurrence::Weekdays => write!(f, "工作日"),
-            Recurrence::Weekends => write!(f, "周末"),
-            Recurrence::Custom(s) => write!(f, "自定义: {}", s),
-        }
+        let s = match self {
+            Recurrence::None => "不重复",
+            Recurrence::Daily => "每天",
+            Recurrence::Weekly => "每周",
+            Recurrence::Monthly => "每月",
+            Recurrence::Yearly => "每年",
+            Recurrence::Weekdays => "工作日",
+            Recurrence::Weekends => "周末",
+            Recurrence::Custom(s) => {
+                return write!(f, "{}: {}", "自定义", s);
+            }
+        };
+        write!(f, "{}", s)
     }
 }
 
 impl fmt::Display for Priority {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Priority::None => write!(f, "不重要"),
-            Priority::Low => write!(f, "低"),
-            Priority::Medium => write!(f, "中"),
-            Priority::High => write!(f, "高"),
-        }
+        let s = match self {
+            Priority::None => "不重要",
+            Priority::Low => "低",
+            Priority::Medium => "中",
+            Priority::High => "高",
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -194,31 +193,13 @@ mod tests {
             .with_due_date(due_date)
             .with_priority(Priority::High)
             .with_urgent(true)
-            .with_description("与客户的季度回顾会议".to_string())
             .with_recurrence(Recurrence::Monthly);
 
         assert_eq!(reminder.title, "重要会议");
         assert_eq!(reminder.priority, Priority::High);
         assert!(reminder.is_urgent);
         assert!(matches!(reminder.recurrence, Recurrence::Monthly));
-        assert_eq!(
-            reminder.description,
-            Some("与客户的季度回顾会议".to_string())
-        );
+
     }
 
-    #[test]
-    fn test_is_overdue() {
-        let past_date = Local.with_ymd_and_hms(2023, 1, 1, 0, 0, 0).unwrap();
-        let future_date = Local.with_ymd_and_hms(2030, 1, 1, 0, 0, 0).unwrap();
-
-        let overdue_reminder =
-            Reminder::new("过期事项".to_string(), "测试".to_string()).with_due_date(past_date);
-
-        let future_reminder =
-            Reminder::new("未来事项".to_string(), "测试".to_string()).with_due_date(future_date);
-
-        assert!(overdue_reminder.is_overdue());
-        assert!(!future_reminder.is_overdue());
-    }
 }

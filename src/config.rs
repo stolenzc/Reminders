@@ -50,7 +50,6 @@ impl Default for AppConfig {
 /// 配置管理器
 #[derive(Clone)]
 pub struct ConfigManager {
-    config_path: String,
     config: AppConfig,
 }
 
@@ -69,7 +68,6 @@ impl ConfigManager {
         let config = Self::load_config(&config_path)?;
 
         Ok(Self {
-            config_path,
             config,
         })
     }
@@ -94,16 +92,6 @@ impl ConfigManager {
         Ok(())
     }
 
-    /// 获取配置
-    pub fn get_config(&self) -> &AppConfig {
-        &self.config
-    }
-
-    /// 获取配置路径
-    pub fn get_config_path(&self) -> &str {
-        &self.config_path
-    }
-
     /// 检查 AI 配置是否有效
     pub fn is_ai_configured(&self) -> bool {
         !self.config.ai.api_key.is_empty() && self.config.use_ai
@@ -124,29 +112,11 @@ impl ConfigManager {
         &self.config.default_reminder_minutes
     }
 
-    /// 创建示例配置文件
-    pub fn create_example_config(path: &str) -> Result<()> {
-        let example_config = AppConfig {
-            ai: AIConfig {
-                api_url: "https://api.openai.com/v1/chat/completions".to_string(),
-                api_key: "your-api-key-here".to_string(),
-                model: "gpt-4-turbo-preview".to_string(),
-            },
-            default_list: "reminders".to_string(),
-            default_reminder_minutes: vec![15, 30],
-            use_ai: true,
-        };
-
-        let content = serde_json::to_string_pretty(&example_config)?;
-        fs::write(path, content)?;
-        Ok(())
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
 
     #[test]
     fn test_default_config() {
@@ -156,17 +126,4 @@ mod tests {
         assert!(!config.use_ai);
     }
 
-    #[test]
-    fn test_create_example_config() -> Result<()> {
-        let temp_dir = tempdir()?;
-        let config_path = temp_dir.path().join("config.json");
-
-        ConfigManager::create_example_config(config_path.to_str().unwrap())?;
-
-        assert!(config_path.exists());
-        let content = fs::read_to_string(config_path)?;
-        assert!(content.contains("your-api-key-here"));
-
-        Ok(())
-    }
 }
