@@ -88,11 +88,7 @@ impl fmt::Display for Reminder {
         }
 
         if let Some(start_date) = &self.start_date {
-            write!(
-                f,
-                "\n开始时间: {}",
-                start_date.format("%Y-%m-%d %H:%M")
-            )?;
+            write!(f, "\n开始时间: {}", start_date.format("%Y-%m-%d %H:%M"))?;
         }
 
         write!(f, "\n优先级: {}", self.priority)?;
@@ -105,11 +101,7 @@ impl fmt::Display for Reminder {
         }
 
         if !self.reminder_minutes.is_empty() {
-            write!(
-                f,
-                "\n提醒时间（提前分钟）: {:?}",
-                self.reminder_minutes
-            )?;
+            write!(f, "\n提醒时间（提前分钟）: {:?}", self.reminder_minutes)?;
         }
 
         if let Some(location) = &self.location {

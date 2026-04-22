@@ -258,7 +258,9 @@ pub fn parse_input(input: &str, default_list: &str) -> Result<ParsedReminder> {
     // 解析目标列表
     for (pattern, kind) in list_patterns().iter() {
         if let Some(caps) = pattern.captures(&text) {
-            if *kind == "dynamic" && let Some(m) = caps.get(1) {
+            if *kind == "dynamic"
+                && let Some(m) = caps.get(1)
+            {
                 result.list = m.as_str().trim().to_string();
             }
             break;
@@ -301,7 +303,9 @@ pub fn parse_input(input: &str, default_list: &str) -> Result<ParsedReminder> {
 
     // 解析提醒时间
     for (pattern, kind) in reminder_time_patterns().iter() {
-        if let Some(caps) = pattern.captures(&text) && let Some(m) = caps.get(1) {
+        if let Some(caps) = pattern.captures(&text)
+            && let Some(m) = caps.get(1)
+        {
             let value: i32 = m.as_str().parse().unwrap_or(15);
             let minutes = match *kind {
                 "hours" => value * 60,
@@ -434,7 +438,9 @@ fn parse_datetime(text: &str, now: DateTime<Local>) -> Result<Option<DateTime<Lo
                 "time_h" => {
                     if let Some(hour) = caps.get(1) {
                         let mut hour: u32 = hour.as_str().parse().unwrap_or(9);
-                        if (time_period == Some("afternoon") || time_period == Some("evening")) && hour < 12 {
+                        if (time_period == Some("afternoon") || time_period == Some("evening"))
+                            && hour < 12
+                        {
                             hour += 12;
                         }
                         time = NaiveTime::from_hms_opt(hour, 0, 0);
