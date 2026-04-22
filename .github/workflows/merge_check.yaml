@@ -29,4 +29,4 @@ jobs:
       - name: Execute rust tests
         run: cargo nextest run --all-features
       - name: Check test coverage
-        run: cargo llvm-cov --all-features --lcov > /dev/null --fail-under-lines 80
+        run: cargo llvm-cov --all-features --fail-under-lines 80
