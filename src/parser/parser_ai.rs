@@ -1,7 +1,7 @@
+use super::cors::ParsedReminder;
 use crate::config::ConfigManager;
 use crate::cors::{Location, Priority, Recurrence};
-use super::cors::ParsedReminder;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -181,7 +181,6 @@ impl AIParser {
             list: ai_result.list,
         })
     }
-
 }
 
 /// 解析日期时间字符串

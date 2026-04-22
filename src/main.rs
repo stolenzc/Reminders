@@ -7,11 +7,10 @@ mod parser;
 mod reminder;
 
 use anyhow::Result;
-use cli::{parse_command, ParsedCommand};
+use cli::{ParsedCommand, parse_command};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-
     let config = config::ConfigManager::new().ok();
 
     let matches = cli::get_matches();
@@ -24,13 +23,11 @@ async fn main() -> Result<()> {
             ref list,
             test,
             quiet,
-        } => {
-            handle_add(&description, force, list.as_deref(), test, quiet, &config).await
-        }
+        } => handle_add(description, force, list.as_deref(), test, quiet, &config).await,
         ParsedCommand::Parse {
             ref description,
             quiet,
-        } => handle_parse(&description, quiet, &config).await,
+        } => handle_parse(description, quiet, &config).await,
     }
 }
 
@@ -77,22 +74,11 @@ async fn handle_add(
         parsed.list = list_name.to_string();
     }
 
-    cli::show_parsed_summary(
-        &parsed.title,
-        parsed.due_date.as_ref(),
-        &parsed.priority,
-        parsed.is_urgent,
-        &parsed.recurrence,
-        &parsed.list,
-        &parsed.tags,
-        parsed.location.as_ref(),
-    );
+    cli::show_parsed_summary(&parsed);
 
-    if !force && !test {
-        if !cli::confirm("确认添加？", true) {
-            cli::show_info("已取消", quiet);
-            return Ok(());
-        }
+    if !force && !test && !cli::confirm("确认添加？", true) {
+        cli::show_info("已取消", quiet);
+        return Ok(());
     }
 
     if test {

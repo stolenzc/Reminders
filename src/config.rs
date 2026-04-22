@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
@@ -67,9 +67,7 @@ impl ConfigManager {
         let config_path = config_dir.join("config.json").to_string_lossy().to_string();
         let config = Self::load_config(&config_path)?;
 
-        Ok(Self {
-            config,
-        })
+        Ok(Self { config })
     }
 
     /// 加载配置
@@ -111,7 +109,6 @@ impl ConfigManager {
     pub fn get_default_reminder_minutes(&self) -> &[i32] {
         &self.config.default_reminder_minutes
     }
-
 }
 
 #[cfg(test)]
@@ -125,5 +122,4 @@ mod tests {
         assert_eq!(config.default_reminder_minutes, vec![15]);
         assert!(!config.use_ai);
     }
-
 }

@@ -11,7 +11,6 @@ pub struct HybridParser {
 }
 
 impl HybridParser {
-
     pub fn from_config(config_manager: ConfigManager, quiet: bool) -> Result<Self> {
         let ai_parser = if config_manager.is_ai_configured() {
             Some(AIParser::new(config_manager.clone())?)
