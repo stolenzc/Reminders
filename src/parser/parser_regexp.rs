@@ -1,5 +1,5 @@
-use crate::cors::{Priority, Recurrence};
 use super::cors::ParsedReminder;
+use crate::cors::{Priority, Recurrence};
 use anyhow::Result;
 use chrono::{DateTime, Datelike, Duration, Local, NaiveDate, NaiveTime, TimeZone, Timelike};
 use regex::Regex;
@@ -8,7 +8,14 @@ use std::sync::OnceLock;
 // ── Hardcoded Chinese parsing keywords (was loaded from locales/parsing/zh.json) ──
 
 fn regex_from_strs(strings: &[&str]) -> Regex {
-    Regex::new(&strings.iter().map(|s| regex::escape(s)).collect::<Vec<_>>().join("|")).unwrap()
+    Regex::new(
+        &strings
+            .iter()
+            .map(|s| regex::escape(s))
+            .collect::<Vec<_>>()
+            .join("|"),
+    )
+    .unwrap()
 }
 
 fn strs_to_alt(strings: &[&str]) -> String {
@@ -32,13 +39,19 @@ fn build_hour_pattern(hour_marker: &str) -> Regex {
 
 fn build_next_week_pattern(prefixes: &[&str], weekdays: &[(&str, &[&str])]) -> Regex {
     let prefix_alt = strs_to_alt(prefixes);
-    let all_days: Vec<String> = weekdays.iter().flat_map(|(_, days)| days.iter().map(|d| d.to_string())).collect();
+    let all_days: Vec<String> = weekdays
+        .iter()
+        .flat_map(|(_, days)| days.iter().map(|d| d.to_string()))
+        .collect();
     Regex::new(&format!(r"(?:{})([{}])", prefix_alt, all_days.join("|"))).unwrap()
 }
 
 fn build_this_week_pattern(prefixes: &[&str], weekdays: &[(&str, &[&str])]) -> Regex {
     let prefix_alt = strs_to_alt(prefixes);
-    let all_days: Vec<String> = weekdays.iter().flat_map(|(_, days)| days.iter().map(|d| d.to_string())).collect();
+    let all_days: Vec<String> = weekdays
+        .iter()
+        .flat_map(|(_, days)| days.iter().map(|d| d.to_string()))
+        .collect();
     Regex::new(&format!(r"(?:{}[{}])", prefix_alt, all_days.join("|"))).unwrap()
 }
 
@@ -46,8 +59,12 @@ fn time_patterns() -> &'static Vec<(Regex, &'static str)> {
     static PATTERNS: OnceLock<Vec<(Regex, &'static str)>> = OnceLock::new();
     PATTERNS.get_or_init(|| {
         let weekdays: &[(&str, &[&str])] = &[
-            ("mon", &["一"]), ("tue", &["二"]), ("wed", &["三"]),
-            ("thu", &["四"]), ("fri", &["五"]), ("sat", &["六"]),
+            ("mon", &["一"]),
+            ("tue", &["二"]),
+            ("wed", &["三"]),
+            ("thu", &["四"]),
+            ("fri", &["五"]),
+            ("sat", &["六"]),
             ("sun", &["日", "天"]),
         ];
         vec![
@@ -57,8 +74,14 @@ fn time_patterns() -> &'static Vec<(Regex, &'static str)> {
             (build_next_week_pattern(&["下周"], weekdays), "next_week"),
             (build_this_week_pattern(&["周"], weekdays), "this_week"),
             (build_suffix_pattern(&["天后"], r"(\d+)"), "days_from_now"),
-            (build_suffix_pattern(&["小时后"], r"(\d+)"), "hours_from_now"),
-            (Regex::new(r"(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})").unwrap(), "date_ymd"),
+            (
+                build_suffix_pattern(&["小时后"], r"(\d+)"),
+                "hours_from_now",
+            ),
+            (
+                Regex::new(r"(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})").unwrap(),
+                "date_ymd",
+            ),
             (Regex::new(r"(\d{1,2})[-/.](\d{1,2})").unwrap(), "date_md"),
             (Regex::new(r"(\d{1,2}):(\d{2})").unwrap(), "time_hm"),
             (build_hour_pattern("点"), "time_h"),
@@ -76,14 +99,19 @@ fn time_patterns() -> &'static Vec<(Regex, &'static str)> {
 
 fn recurrence_patterns() -> &'static Vec<(Regex, Recurrence)> {
     static PATTERNS: OnceLock<Vec<(Regex, Recurrence)>> = OnceLock::new();
-    PATTERNS.get_or_init(|| vec![
-        (regex_from_strs(&["每天", "每日"]), Recurrence::Daily),
-        (regex_from_strs(&["每周", "每星期"]), Recurrence::Weekly),
-        (regex_from_strs(&["每月", "每个月"]), Recurrence::Monthly),
-        (regex_from_strs(&["每年"]), Recurrence::Yearly),
-        (regex_from_strs(&["每个工作日", "工作日"]), Recurrence::Weekdays),
-        (regex_from_strs(&["每个周末", "周末"]), Recurrence::Weekends),
-    ])
+    PATTERNS.get_or_init(|| {
+        vec![
+            (regex_from_strs(&["每天", "每日"]), Recurrence::Daily),
+            (regex_from_strs(&["每周", "每星期"]), Recurrence::Weekly),
+            (regex_from_strs(&["每月", "每个月"]), Recurrence::Monthly),
+            (regex_from_strs(&["每年"]), Recurrence::Yearly),
+            (
+                regex_from_strs(&["每个工作日", "工作日"]),
+                Recurrence::Weekdays,
+            ),
+            (regex_from_strs(&["每个周末", "周末"]), Recurrence::Weekends),
+        ]
+    })
 }
 
 fn list_patterns() -> &'static Vec<(Regex, &'static str)> {
@@ -92,7 +120,10 @@ fn list_patterns() -> &'static Vec<(Regex, &'static str)> {
         let verbs = strs_to_alt(&["加到", "放到", "存到", "添加到"]);
         let suffixes = strs_to_alt(&["列表", "清单"]);
         vec![
-            (Regex::new(&format!(r"(?:{})\s*([\S]+?)(?:{})?$", verbs, suffixes)).unwrap(), "dynamic"),
+            (
+                Regex::new(&format!(r"(?:{})\s*([\S]+?)(?:{})?$", verbs, suffixes)).unwrap(),
+                "dynamic",
+            ),
             (Regex::new(r"列表[:：]\s*(\S+)").unwrap(), "dynamic"),
         ]
     })
@@ -100,32 +131,58 @@ fn list_patterns() -> &'static Vec<(Regex, &'static str)> {
 
 fn reminder_time_patterns() -> &'static Vec<(Regex, &'static str)> {
     static PATTERNS: OnceLock<Vec<(Regex, &'static str)>> = OnceLock::new();
-    PATTERNS.get_or_init(|| vec![
-        (Regex::new(r"提前(\d+)分钟").unwrap(), "minutes"),
-        (Regex::new(r"提前(\d+)小时").unwrap(), "hours"),
-        (Regex::new(r"提前(\d+)天").unwrap(), "days"),
-    ])
+    PATTERNS.get_or_init(|| {
+        vec![
+            (Regex::new(r"提前(\d+)分钟").unwrap(), "minutes"),
+            (Regex::new(r"提前(\d+)小时").unwrap(), "hours"),
+            (Regex::new(r"提前(\d+)天").unwrap(), "days"),
+        ]
+    })
 }
 
 fn title_patterns() -> &'static Vec<String> {
     static PATTERNS: OnceLock<Vec<String>> = OnceLock::new();
-    PATTERNS.get_or_init(|| vec![
-        strs_to_alt(&["明天", "明日", "后天", "今天", "今日"]),
-        "下周[一二三四五六日天]|(?:下周)?周[一二三四五六日天]".to_string(),
-        "\\d+天后|\\d+小时后".to_string(),
-        "\\d{4}[-/.]\\d{1,2}[-/.]\\d{1,2}".to_string(),
-        "\\d{1,2}[-/.]\\d{1,2}".to_string(),
-        "\\d{1,2}:\\d{2}".to_string(),
-        "\\d{1,2}点\\d{1,2}分|\\d{1,2}点\\d{1,2}|\\d{1,2}点".to_string(),
-        strs_to_alt(&["早上", "早晨", "上午", "下午", "晚上", "晚间", "中午", "凌晨"]),
-        strs_to_alt(&["每天", "每日", "每周", "每星期", "每月", "每个月", "每年", "每个工作日", "工作日", "每个周末", "周末"]),
-        strs_to_alt(&["紧急", "马上", "立刻", "ASAP", "asap", "火烧眉毛", "十万火急"]),
-        strs_to_alt(&["重要", "优先", "高优先级", "不重要", "低优先级", "有空再做"]),
-        "(?:加到|放到|存到|添加到)\\s*[\\S]+?(?:列表|清单)?".to_string(),
-        "列表[:：]\\s*\\S+".to_string(),
-        "提前\\d+(?:分钟|小时|天)".to_string(),
-        strs_to_alt(&["，", "。", "！", "？", ",", ".", "!", "?"]),
-    ])
+    PATTERNS.get_or_init(|| {
+        vec![
+            strs_to_alt(&["明天", "明日", "后天", "今天", "今日"]),
+            "下周[一二三四五六日天]|(?:下周)?周[一二三四五六日天]".to_string(),
+            "\\d+天后|\\d+小时后".to_string(),
+            "\\d{4}[-/.]\\d{1,2}[-/.]\\d{1,2}".to_string(),
+            "\\d{1,2}[-/.]\\d{1,2}".to_string(),
+            "\\d{1,2}:\\d{2}".to_string(),
+            "\\d{1,2}点\\d{1,2}分|\\d{1,2}点\\d{1,2}|\\d{1,2}点".to_string(),
+            strs_to_alt(&[
+                "早上", "早晨", "上午", "下午", "晚上", "晚间", "中午", "凌晨",
+            ]),
+            strs_to_alt(&[
+                "每天",
+                "每日",
+                "每周",
+                "每星期",
+                "每月",
+                "每个月",
+                "每年",
+                "每个工作日",
+                "工作日",
+                "每个周末",
+                "周末",
+            ]),
+            strs_to_alt(&[
+                "紧急",
+                "马上",
+                "立刻",
+                "ASAP",
+                "asap",
+                "火烧眉毛",
+                "十万火急",
+            ]),
+            strs_to_alt(&["重要", "优先", "高优先级", "不重要", "低优先级", "有空再做"]),
+            "(?:加到|放到|存到|添加到)\\s*[\\S]+?(?:列表|清单)?".to_string(),
+            "列表[:：]\\s*\\S+".to_string(),
+            "提前\\d+(?:分钟|小时|天)".to_string(),
+            strs_to_alt(&["，", "。", "！", "？", ",", ".", "!", "?"]),
+        ]
+    })
 }
 
 fn high_priority_keywords() -> &'static [&'static str] {
@@ -137,15 +194,29 @@ fn low_priority_keywords() -> &'static [&'static str] {
 }
 
 fn urgent_keywords() -> &'static [&'static str] {
-    &["紧急", "急", "马上", "立刻", "ASAP", "asap", "火烧眉毛", "十万火急", "urgent"]
+    &[
+        "紧急",
+        "急",
+        "马上",
+        "立刻",
+        "ASAP",
+        "asap",
+        "火烧眉毛",
+        "十万火急",
+        "urgent",
+    ]
 }
 
 fn parse_weekday_char(ch: &str) -> Option<chrono::Weekday> {
     let weekdays: &[(&str, chrono::Weekday)] = &[
-        ("一", chrono::Weekday::Mon), ("二", chrono::Weekday::Tue),
-        ("三", chrono::Weekday::Wed), ("四", chrono::Weekday::Thu),
-        ("五", chrono::Weekday::Fri), ("六", chrono::Weekday::Sat),
-        ("日", chrono::Weekday::Sun), ("天", chrono::Weekday::Sun),
+        ("一", chrono::Weekday::Mon),
+        ("二", chrono::Weekday::Tue),
+        ("三", chrono::Weekday::Wed),
+        ("四", chrono::Weekday::Thu),
+        ("五", chrono::Weekday::Fri),
+        ("六", chrono::Weekday::Sat),
+        ("日", chrono::Weekday::Sun),
+        ("天", chrono::Weekday::Sun),
     ];
     for (c, wd) in weekdays {
         if c.contains(ch) {
@@ -187,10 +258,8 @@ pub fn parse_input(input: &str, default_list: &str) -> Result<ParsedReminder> {
     // 解析目标列表
     for (pattern, kind) in list_patterns().iter() {
         if let Some(caps) = pattern.captures(&text) {
-            if *kind == "dynamic" {
-                if let Some(m) = caps.get(1) {
-                    result.list = m.as_str().trim().to_string();
-                }
+            if *kind == "dynamic" && let Some(m) = caps.get(1) {
+                result.list = m.as_str().trim().to_string();
             }
             break;
         }
@@ -232,17 +301,15 @@ pub fn parse_input(input: &str, default_list: &str) -> Result<ParsedReminder> {
 
     // 解析提醒时间
     for (pattern, kind) in reminder_time_patterns().iter() {
-        if let Some(caps) = pattern.captures(&text) {
-            if let Some(m) = caps.get(1) {
-                let value: i32 = m.as_str().parse().unwrap_or(15);
-                let minutes = match *kind {
-                    "hours" => value * 60,
-                    "days" => value * 24 * 60,
-                    _ => value,
-                };
-                result.reminder_minutes = vec![minutes];
-                break;
-            }
+        if let Some(caps) = pattern.captures(&text) && let Some(m) = caps.get(1) {
+            let value: i32 = m.as_str().parse().unwrap_or(15);
+            let minutes = match *kind {
+                "hours" => value * 60,
+                "days" => value * 24 * 60,
+                _ => value,
+            };
+            result.reminder_minutes = vec![minutes];
+            break;
         }
     }
 
@@ -367,9 +434,7 @@ fn parse_datetime(text: &str, now: DateTime<Local>) -> Result<Option<DateTime<Lo
                 "time_h" => {
                     if let Some(hour) = caps.get(1) {
                         let mut hour: u32 = hour.as_str().parse().unwrap_or(9);
-                        if time_period == Some("afternoon") && hour < 12 {
-                            hour += 12;
-                        } else if time_period == Some("evening") && hour < 12 {
+                        if (time_period == Some("afternoon") || time_period == Some("evening")) && hour < 12 {
                             hour += 12;
                         }
                         time = NaiveTime::from_hms_opt(hour, 0, 0);

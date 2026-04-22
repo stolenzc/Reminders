@@ -1,6 +1,6 @@
 use crate::cors::{Priority, Recurrence};
 use crate::reminder::Reminder;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::{DateTime, Datelike, Local, Timelike};
 use std::process::Command;
 
@@ -105,12 +105,14 @@ fn build_reminder_script(reminder: &Reminder) -> Result<String> {
 
     // 提醒时间（在截止日期前 N 分钟）
     if let (Some(due_date), Some(&minutes)) =
-        (&reminder.due_date, reminder.reminder_minutes.first())
+        (&reminder.due_date, reminder.reminder_minutes.first()) && minutes >= 0
     {
-        if minutes >= 0 {
-            let alarm_date = *due_date - chrono::Duration::minutes(minutes as i64);
-            script.push_str(&build_set_date_script("remind me date", &alarm_date, "newReminder"));
-        }
+        let alarm_date = *due_date - chrono::Duration::minutes(minutes as i64);
+        script.push_str(&build_set_date_script(
+            "remind me date",
+            &alarm_date,
+            "newReminder",
+        ));
     }
 
     script.push_str("end tell");

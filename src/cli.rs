@@ -1,5 +1,5 @@
+use crate::{cors::Recurrence, parser::ParsedReminder};
 use clap::{Arg, Command};
-use crate::cors::{Priority, Recurrence, Location};
 use std::io::{self, Write};
 
 /// Build the CLI application with localized strings.
@@ -157,42 +157,33 @@ pub fn show_progress(message: &str) {
 }
 
 /// 显示解析结果摘要
-pub fn show_parsed_summary(
-    title: &str,
-    due_date: Option<&chrono::DateTime<chrono::Local>>,
-    priority: &Priority,
-    is_urgent: bool,
-    recurrence: &Recurrence,
-    list: &str,
-    tags: &[String],
-    location: Option<&Location>,
-) {
+pub fn show_parsed_summary(parsed: &ParsedReminder) {
     println!("\n📋 解析结果:");
     println!("  ┌─────────────────────────────────────────────┐");
-    println!("  │ {}: {}", "标题", title);
+    println!("  │ 标题: {}", parsed.title);
 
-    if let Some(due_date) = due_date {
-        println!("  │ {}: {}", "截止时间", due_date.format("%Y-%m-%d %H:%M"));
+    if let Some(due_date) = parsed.due_date {
+        println!("  │ 截止时间: {}", due_date.format("%Y-%m-%d %H:%M"));
     }
 
-    println!("  │ {}: {}", "优先级", priority);
+    println!("  │ 优先级: {}", parsed.priority);
 
-    if is_urgent {
-        println!("  │ {}: {}", "是否紧急", "是");
+    if parsed.is_urgent {
+        println!("  │ 是否紧急: 是");
     }
 
-    if !matches!(recurrence, Recurrence::None) {
-        println!("  │ {}: {}", "重复", recurrence);
+    if !matches!(parsed.recurrence, Recurrence::None) {
+        println!("  │ 重复: {}", parsed.recurrence);
     }
 
-    println!("  │ {}: {}", "列表", list);
+    println!("  │ 列表: {}", parsed.list);
 
-    if !tags.is_empty() {
-        println!("  │ {}: {}", "标签", tags.join(", "));
+    if !parsed.tags.is_empty() {
+        println!("  │ 标签: {}", parsed.tags.join(", "));
     }
 
-    if let Some(location) = location {
-        println!("  │ {}: {}", "位置", location.name);
+    if let Some(location) = &parsed.location {
+        println!("  │ 位置: {}", location.name);
     }
 
     println!("  └─────────────────────────────────────────────┘");

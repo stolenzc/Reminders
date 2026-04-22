@@ -81,56 +81,39 @@ impl Reminder {
 
 impl fmt::Display for Reminder {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: {}", "提醒事项", self.title)?;
+        write!(f, "提醒事项: {}", self.title)?;
 
         if let Some(due_date) = &self.due_date {
-            write!(
-                f,
-                "\n{}: {}",
-                "截止时间",
-                due_date.format("%Y-%m-%d %H:%M")
-            )?;
+            write!(f, "\n截止时间: {}", due_date.format("%Y-%m-%d %H:%M"))?;
         }
 
         if let Some(start_date) = &self.start_date {
             write!(
                 f,
-                "\n{}: {}",
-                "开始时间",
+                "\n开始时间: {}",
                 start_date.format("%Y-%m-%d %H:%M")
             )?;
         }
 
-        write!(
-            f,
-            "\n{}: {}",
-            "优先级",
-            self.priority
-        )?;
-        write!(f, "\n{}: {}", "紧急", self.is_urgent)?;
-        write!(
-            f,
-            "\n{}: {}",
-            "重复",
-            self.recurrence
-        )?;
-        write!(f, "\n{}: {}", "列表", self.list)?;
+        write!(f, "\n优先级: {}", self.priority)?;
+        write!(f, "\n紧急: {}", self.is_urgent)?;
+        write!(f, "\n重复: {}", self.recurrence)?;
+        write!(f, "\n列表: {}", self.list)?;
 
         if !self.tags.is_empty() {
-            write!(f, "\n{}: {}", "标签", self.tags.join(", "))?;
+            write!(f, "\n标签: {}", self.tags.join(", "))?;
         }
 
         if !self.reminder_minutes.is_empty() {
             write!(
                 f,
-                "\n{}: {:?}",
-                "提醒时间（提前分钟）",
+                "\n提醒时间（提前分钟）: {:?}",
                 self.reminder_minutes
             )?;
         }
 
         if let Some(location) = &self.location {
-            write!(f, "\n{}: {}", "位置", location.name)?;
+            write!(f, "\n位置: {}", location.name)?;
             if let Some(addr) = &location.address {
                 write!(f, " ({})", addr)?;
             }
@@ -151,7 +134,7 @@ impl fmt::Display for Recurrence {
             Recurrence::Weekdays => "工作日",
             Recurrence::Weekends => "周末",
             Recurrence::Custom(s) => {
-                return write!(f, "{}: {}", "自定义", s);
+                return write!(f, "自定义: {}", s);
             }
         };
         write!(f, "{}", s)
@@ -199,7 +182,5 @@ mod tests {
         assert_eq!(reminder.priority, Priority::High);
         assert!(reminder.is_urgent);
         assert!(matches!(reminder.recurrence, Recurrence::Monthly));
-
     }
-
 }

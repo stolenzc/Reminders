@@ -1,5 +1,4 @@
-use serde::{Serialize, Deserialize};
-
+use serde::{Deserialize, Serialize};
 
 /// 重复模式
 #[derive(Debug, Clone, Serialize, Deserialize)]
