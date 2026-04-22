@@ -105,7 +105,8 @@ fn build_reminder_script(reminder: &Reminder) -> Result<String> {
 
     // 提醒时间（在截止日期前 N 分钟）
     if let (Some(due_date), Some(&minutes)) =
-        (&reminder.due_date, reminder.reminder_minutes.first()) && minutes >= 0
+        (&reminder.due_date, reminder.reminder_minutes.first())
+        && minutes >= 0
     {
         let alarm_date = *due_date - chrono::Duration::minutes(minutes as i64);
         script.push_str(&build_set_date_script(
