@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
@@ -16,6 +16,7 @@ pub struct AIConfig {
 
 /// 应用配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct AppConfig {
     /// AI 配置
     pub ai: AIConfig,
@@ -23,26 +24,27 @@ pub struct AppConfig {
     pub default_list: String,
     /// 默认提醒时间（分钟）
     pub default_reminder_minutes: Vec<i32>,
-    /// 是否使用 AI 解析（默认 true）
-    #[serde(default = "default_true")]
+    /// 是否使用 AI 解析
     pub use_ai: bool,
-}
-
-fn default_true() -> bool {
-    true
 }
 
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            ai: AIConfig {
-                api_url: "https://api.openai.com/v1/chat/completions".to_string(),
-                api_key: "".to_string(),
-                model: "gpt-4-turbo-preview".to_string(),
-            },
+            ai: AIConfig::default(),
             default_list: "提醒事项".to_string(),
-            default_reminder_minutes: vec![15],
+            default_reminder_minutes: vec![0],
             use_ai: false,
+        }
+    }
+}
+
+impl Default for AIConfig {
+    fn default() -> Self {
+        Self {
+            api_url: "".to_string(),
+            api_key: "".to_string(),
+            model: "".to_string(),
         }
     }
 }
@@ -56,9 +58,7 @@ pub struct ConfigManager {
 impl ConfigManager {
     /// 创建新的配置管理器
     pub fn new() -> Result<Self> {
-        let config_dir = dirs::config_dir()
-            .ok_or_else(|| anyhow!("无法获取配置目录"))?
-            .join("reminders");
+        let config_dir = dirs::home_dir().unwrap().join(".config/reminders");
 
         if !config_dir.exists() {
             fs::create_dir_all(&config_dir)?;
@@ -119,7 +119,7 @@ mod tests {
     fn test_default_config() {
         let config = AppConfig::default();
         assert_eq!(config.default_list, "提醒事项");
-        assert_eq!(config.default_reminder_minutes, vec![15]);
+        assert_eq!(config.default_reminder_minutes, vec![0]);
         assert!(!config.use_ai);
     }
 }

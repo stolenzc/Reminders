@@ -2,7 +2,7 @@ use crate::cors::{Priority, Recurrence};
 use crate::reminder::Reminder;
 use anyhow::{Result, anyhow};
 use chrono::{DateTime, Datelike, Local, Timelike};
-use std::process::Command;
+use std::process::{Command, Output};
 
 /// 苹果提醒事项集成（通过 AppleScript 与 Reminders.app 通信）
 pub struct AppleReminders;
@@ -29,20 +29,25 @@ impl AppleReminders {
 
     /// 检查列表是否存在
     pub fn list_exists(list_name: &str) -> Result<bool> {
-        let script = format!(
-            r#"tell application "Reminders"
+        let script = r#"tell application "Reminders"
     set listNames to name of every list
-    repeat with n in listNames
-        if n = "{}" then return "yes"
-    end repeat
-    return "no"
-end tell"#,
-            escape_string(list_name)
-        );
+    return listNames
+end tell"#;
 
-        let output = Command::new("osascript").arg("-e").arg(&script).output()?;
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        Ok(stdout.trim() == "yes")
+        // 获取全部列表名称, 不使用AppleScript检测
+        let output: Output = Command::new("osascript").arg("-e").arg(script).output()?;
+        let list_str = String::from_utf8_lossy(&output.stdout);
+        let list_vec: Vec<String> = list_str
+            .replace("\n", ",")
+            .split(",")
+            .map(|s| s.to_string())
+            .collect();
+        for exist_name in list_vec {
+            if exist_name == list_name {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 
     /// 创建新列表（如果不存在）
