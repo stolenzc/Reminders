@@ -49,7 +49,7 @@ reminders add "明天下午3点开会"
     "model": "gpt-4-turbo-preview"
   },
   "default_list": "提醒事项",
-  "default_reminder_minutes": [15, 30]
+  "default_reminder_minutes": [0]
 }
 ```
 

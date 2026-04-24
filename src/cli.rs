@@ -1,4 +1,7 @@
-use crate::{cors::Recurrence, parser::ParsedReminder};
+use crate::{
+    cors::{Priority, Recurrence},
+    parser::ParsedReminder,
+};
 use clap::{Arg, Command};
 use std::io::{self, Write};
 
@@ -166,7 +169,9 @@ pub fn show_parsed_summary(parsed: &ParsedReminder) {
         println!("  │ 截止时间: {}", due_date.format("%Y-%m-%d %H:%M"));
     }
 
-    println!("  │ 优先级: {}", parsed.priority);
+    if parsed.priority != Priority::None {
+        println!("  │ 优先级: {}", parsed.priority);
+    }
 
     if parsed.is_urgent {
         println!("  │ 是否紧急: 是");

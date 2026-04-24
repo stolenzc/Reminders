@@ -236,11 +236,11 @@ pub fn parse_input(input: &str, default_list: &str) -> Result<ParsedReminder> {
         title: String::new(),
         due_date: None,
         start_date: None,
-        priority: Priority::Medium,
+        priority: Priority::None,
         is_urgent: false,
         recurrence: Recurrence::None,
         location: None,
-        reminder_minutes: vec![15],
+        reminder_minutes: vec![0],
         tags: Vec::new(),
         list: default_list.to_string(),
     };
@@ -306,7 +306,7 @@ pub fn parse_input(input: &str, default_list: &str) -> Result<ParsedReminder> {
         if let Some(caps) = pattern.captures(&text)
             && let Some(m) = caps.get(1)
         {
-            let value: i32 = m.as_str().parse().unwrap_or(15);
+            let value: i32 = m.as_str().parse().unwrap_or(0);
             let minutes = match *kind {
                 "hours" => value * 60,
                 "days" => value * 24 * 60,

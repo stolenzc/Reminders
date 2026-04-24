@@ -5,6 +5,6 @@
     "model": "gpt-4-turbo-preview"
   },
   "default_list": "reminders",
-  "default_reminder_minutes": [15, 30],
+  "default_reminder_minutes": [0],
   "use_ai": true
 }

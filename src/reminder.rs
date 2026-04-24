@@ -42,7 +42,7 @@ impl Reminder {
             is_urgent: false,
             recurrence: Recurrence::None,
             location: None,
-            reminder_minutes: vec![15, 5], // 默认提前15分钟和5分钟提醒
+            reminder_minutes: vec![0],
             tags: Vec::new(),
             list,
         }
@@ -157,7 +157,7 @@ mod tests {
         assert_eq!(reminder.list, "默认列表");
         assert_eq!(reminder.priority, Priority::Medium);
         assert!(!reminder.is_urgent);
-        assert_eq!(reminder.reminder_minutes, vec![15, 5]);
+        assert_eq!(reminder.reminder_minutes, vec![0]);
     }
 
     #[test]
