@@ -1,5 +1,5 @@
-use super::cors::ParsedReminder;
 use crate::cors::{Priority, Recurrence};
+use crate::reminder::Reminder;
 use anyhow::Result;
 use chrono::{DateTime, Datelike, Duration, Local, NaiveDate, NaiveTime, TimeZone, Timelike};
 use regex::Regex;
@@ -228,22 +228,11 @@ fn parse_weekday_char(ch: &str) -> Option<chrono::Weekday> {
 
 const DEFAULT_FALLBACK_TITLE: &str = "新提醒";
 
-pub fn parse_input(input: &str, default_list: &str) -> Result<ParsedReminder> {
+pub fn parse_input(input: &str, default_list: &str) -> Result<Reminder> {
     let input = input.trim();
     let now = Local::now();
 
-    let mut result = ParsedReminder {
-        title: String::new(),
-        due_date: None,
-        start_date: None,
-        priority: Priority::None,
-        is_urgent: false,
-        recurrence: Recurrence::None,
-        location: None,
-        reminder_minutes: vec![0],
-        tags: Vec::new(),
-        list: default_list.to_string(),
-    };
+    let mut result = Reminder::new(String::new()).with_list(default_list.to_string());
 
     // 提取标签 #tag
     let tag_pattern = Regex::new(r"#(\w+)").unwrap();

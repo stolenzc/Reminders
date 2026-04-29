@@ -32,7 +32,7 @@ pub struct Reminder {
 
 impl Reminder {
     /// 创建一个新的提醒事项
-    pub fn new(title: String, list: String) -> Self {
+    pub fn new(title: String) -> Self {
         Self {
             title,
             due_date: None,
@@ -44,38 +44,78 @@ impl Reminder {
             location: None,
             reminder_minutes: vec![0],
             tags: Vec::new(),
-            list,
+            list: String::new(),
         }
     }
 
     /// 设置截止日期
-    pub fn with_due_date(mut self, due_date: DateTime<Local>) -> Self {
-        self.due_date = Some(due_date);
+    #[allow(unused)]
+    pub fn with_due_date(mut self, due_date: Option<DateTime<Local>>) -> Self {
+        self.due_date = due_date;
+        self
+    }
+
+    /// 设置开始日期时间
+    #[allow(unused)]
+    pub fn with_start_date(mut self, start_date: Option<DateTime<Local>>) -> Self {
+        self.start_date = start_date;
+        self
+    }
+
+    /// 设置是否已完成
+    #[allow(unused)]
+    pub fn with_completed(mut self, completed: bool) -> Self {
+        self.completed = completed;
         self
     }
 
     /// 设置优先级
+    #[allow(unused)]
     pub fn with_priority(mut self, priority: Priority) -> Self {
         self.priority = priority;
         self
     }
 
     /// 设置是否紧急
+    #[allow(unused)]
     pub fn with_urgent(mut self, is_urgent: bool) -> Self {
         self.is_urgent = is_urgent;
         self
     }
 
     /// 设置重复模式
+    #[allow(unused)]
     pub fn with_recurrence(mut self, recurrence: Recurrence) -> Self {
         self.recurrence = recurrence;
         self
     }
 
-    pub fn add_tag(&mut self, tags: Vec<String>) {
-        for tag in tags {
-            self.tags.push(tag);
-        }
+    /// 设置位置信息
+    #[allow(unused)]
+    pub fn with_location(mut self, location: Option<Location>) -> Self {
+        self.location = location;
+        self
+    }
+
+    /// 设置提醒时间（分钟前）
+    #[allow(unused)]
+    pub fn with_reminder_minutes(mut self, reminder_minutes: Vec<i32>) -> Self {
+        self.reminder_minutes = reminder_minutes;
+        self
+    }
+
+    /// 添加标签
+    #[allow(unused)]
+    pub fn with_tags(mut self, tags: Vec<String>) -> Self {
+        self.tags.extend(tags);
+        self
+    }
+
+    /// 设置所属列表
+    #[allow(unused)]
+    pub fn with_list(mut self, list: String) -> Self {
+        self.list = list;
+        self
     }
 }
 
@@ -152,7 +192,7 @@ mod tests {
 
     #[test]
     fn test_new_reminder() {
-        let reminder = Reminder::new("测试事项".to_string(), "默认列表".to_string());
+        let reminder = Reminder::new("测试事项".to_string()).with_list("默认列表".to_string());
         assert_eq!(reminder.title, "测试事项");
         assert_eq!(reminder.list, "默认列表");
         assert_eq!(reminder.priority, Priority::Medium);
@@ -164,8 +204,8 @@ mod tests {
     fn test_reminder_builder() {
         let due_date = Local.with_ymd_and_hms(2024, 12, 31, 23, 59, 59).unwrap();
 
-        let reminder = Reminder::new("重要会议".to_string(), "工作".to_string())
-            .with_due_date(due_date)
+        let reminder = Reminder::new("重要会议".to_string())
+            .with_due_date(Some(due_date))
             .with_priority(Priority::High)
             .with_urgent(true)
             .with_recurrence(Recurrence::Monthly);
