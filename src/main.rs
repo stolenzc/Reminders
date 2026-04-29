@@ -55,13 +55,13 @@ async fn handle_add(
                 return Ok(());
             }
         },
-        None => {
+        Option::None => {
             cli::show_error("❌ 初始化解析器失败: config");
             return Ok(());
         }
     };
 
-    let parsed = match parser.parse(&input).await {
+    let mut reminder = match parser.parse(&input).await {
         Ok(p) => p,
         Err(e) => {
             cli::show_error(&format!("❌ 解析失败: {}", e));
@@ -69,12 +69,11 @@ async fn handle_add(
         }
     };
 
-    let mut parsed = parsed;
     if let Some(list_name) = list {
-        parsed.list = list_name.to_string();
+        reminder = reminder.with_list(list_name.to_string());
     }
 
-    cli::show_parsed_summary(&parsed);
+    cli::show_parsed_summary(&reminder);
 
     if !force && !test && !cli::confirm("确认添加？", true) {
         cli::show_info("已取消", quiet);
@@ -87,7 +86,6 @@ async fn handle_add(
     }
 
     cli::show_progress("⏳ 正在创建提醒事项...");
-    let reminder = parsed.into_reminder();
 
     match apple_reminders::AppleReminders::create_reminder(&reminder) {
         Ok(_) => {
@@ -122,7 +120,7 @@ async fn handle_parse(
                 return Ok(());
             }
         },
-        None => {
+        Option::None => {
             cli::show_error("❌ 初始化解析器失败: config");
             return Ok(());
         }

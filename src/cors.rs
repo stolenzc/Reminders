@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// 重复模式
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Recurrence {
     None,
     Daily,

@@ -1,6 +1,7 @@
 use crate::config::ConfigManager;
 use crate::parser;
-use crate::parser::{AIParser, ParsedReminder};
+use crate::parser::AIParser;
+use crate::reminder::Reminder;
 use anyhow::Result;
 
 /// 混合解析器 - 优先使用 AI，失败时回退到正则解析
@@ -26,7 +27,7 @@ impl HybridParser {
     }
 
     /// 解析输入 - 优先 AI，失败时回退到正则
-    pub async fn parse(&self, input: &str) -> Result<ParsedReminder> {
+    pub async fn parse(&self, input: &str) -> Result<Reminder> {
         let default_list = self.config_manager.get_default_list().to_string();
 
         if let Some(ref ai_parser) = self.ai_parser {
@@ -57,7 +58,7 @@ impl HybridParser {
         Ok(self.apply_defaults(result))
     }
 
-    fn apply_defaults(&self, mut result: ParsedReminder) -> ParsedReminder {
+    fn apply_defaults(&self, mut result: Reminder) -> Reminder {
         // 如果列表为空，使用默认列表
         if result.list.is_empty() {
             result.list = self.config_manager.get_default_list().to_string();

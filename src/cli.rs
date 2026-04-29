@@ -1,6 +1,6 @@
 use crate::{
     cors::{Priority, Recurrence},
-    parser::ParsedReminder,
+    reminder::Reminder,
 };
 use clap::{Arg, Command};
 use std::io::{self, Write};
@@ -160,34 +160,34 @@ pub fn show_progress(message: &str) {
 }
 
 /// 显示解析结果摘要
-pub fn show_parsed_summary(parsed: &ParsedReminder) {
+pub fn show_parsed_summary(reminder: &Reminder) {
     println!("\n📋 解析结果:");
     println!("  ┌─────────────────────────────────────────────┐");
-    println!("  │ 标题: {}", parsed.title);
+    println!("  │ 标题: {}", reminder.title);
 
-    if let Some(due_date) = parsed.due_date {
+    if let Some(due_date) = reminder.due_date {
         println!("  │ 截止时间: {}", due_date.format("%Y-%m-%d %H:%M"));
     }
 
-    if parsed.priority != Priority::None {
-        println!("  │ 优先级: {}", parsed.priority);
+    if reminder.priority != Priority::None {
+        println!("  │ 优先级: {}", reminder.priority);
     }
 
-    if parsed.is_urgent {
+    if reminder.is_urgent {
         println!("  │ 是否紧急: 是");
     }
 
-    if !matches!(parsed.recurrence, Recurrence::None) {
-        println!("  │ 重复: {}", parsed.recurrence);
+    if reminder.recurrence != Recurrence::None {
+        println!("  │ 重复: {}", reminder.recurrence);
     }
 
-    println!("  │ 列表: {}", parsed.list);
+    println!("  │ 列表: {}", reminder.list);
 
-    if !parsed.tags.is_empty() {
-        println!("  │ 标签: {}", parsed.tags.join(", "));
+    if !reminder.tags.is_empty() {
+        println!("  │ 标签: {}", reminder.tags.join(", "));
     }
 
-    if let Some(location) = &parsed.location {
+    if let Some(location) = &reminder.location {
         println!("  │ 位置: {}", location.name);
     }
 

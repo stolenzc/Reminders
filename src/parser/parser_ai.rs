@@ -1,6 +1,6 @@
-use super::cors::ParsedReminder;
 use crate::config::ConfigManager;
 use crate::cors::{Location, Priority, Recurrence};
+use crate::reminder::Reminder;
 use anyhow::{Result, anyhow};
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone};
 use reqwest::Client;
@@ -91,7 +91,7 @@ impl AIParser {
     }
 
     /// 使用 AI 解析输入
-    pub async fn parse_with_ai(&self, input: &str) -> Result<ParsedReminder> {
+    pub async fn parse_with_ai(&self, input: &str) -> Result<Reminder> {
         if !self.config_manager.is_ai_configured() {
             return Err(anyhow!("AI 未配置"));
         }
@@ -152,7 +152,7 @@ impl AIParser {
             .replace("{default_list}", default_list)
     }
 
-    fn parse_ai_response(&self, content: &str) -> Result<ParsedReminder> {
+    fn parse_ai_response(&self, content: &str) -> Result<Reminder> {
         let json_content = if content.trim().starts_with('{') && content.trim().ends_with('}') {
             content.trim().to_string()
         } else {
@@ -162,24 +162,35 @@ impl AIParser {
         };
 
         let ai_result: AIParsedResult = serde_json::from_str(&json_content)?;
+        let mut reminder = Reminder::new(ai_result.title)
+            .with_due_date(parse_datetime_string(&ai_result.due_date))
+            .with_start_date(parse_datetime_string(&ai_result.start_date))
+            .with_priority(parse_priority(&ai_result.priority))
+            .with_urgent(ai_result.is_urgent)
+            .with_recurrence(parse_recurrence(&ai_result.recurrence))
+            .with_list(ai_result.list);
 
-        Ok(ParsedReminder {
-            title: ai_result.title,
-            due_date: parse_datetime_string(&ai_result.due_date),
-            start_date: parse_datetime_string(&ai_result.start_date),
-            priority: parse_priority(&ai_result.priority),
-            is_urgent: ai_result.is_urgent,
-            recurrence: parse_recurrence(&ai_result.recurrence),
-            location: ai_result.location.map(|loc| Location {
-                name: loc.name,
-                latitude: None,
-                longitude: None,
-                address: loc.address,
-            }),
-            reminder_minutes: ai_result.reminder_minutes,
-            tags: ai_result.tags,
-            list: ai_result.list,
-        })
+        let location = ai_result.location.map(|loc| Location {
+            name: loc.name,
+            latitude: None,
+            longitude: None,
+            address: loc.address,
+        });
+        if let Some(location) = location {
+            reminder.location = Some(location);
+        }
+
+        let reminder_minutes = ai_result.reminder_minutes;
+        if !reminder_minutes.is_empty() {
+            reminder = reminder.with_reminder_minutes(reminder_minutes);
+        }
+
+        let tags = ai_result.tags;
+        if !tags.is_empty() {
+            reminder = reminder.with_tags(tags);
+        }
+
+        Ok(reminder)
     }
 }
 
